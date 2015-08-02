@@ -1,0 +1,36 @@
+{
+    "name": "gos/react-amqp",
+    "description": "AMQP bindings for ReactPHP",
+    "keywords": ["amqp", "rabbitmq"],
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Jeremy Cook",
+            "email": "jeremycook0@gmail.com"
+        },
+        {
+            "name": "Johann Saunier",
+            "email": "johann_27@hotmail.fr"
+        }
+    ],
+    "require": {
+        "php": ">=5.4.0",
+        "ext-amqp": "*",
+        "evenement/evenement": "~2.0.0",
+        "react/event-loop": "~0.4.0"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "~4.7"
+    },
+    "autoload": {
+        "psr-4": { "Gos\\Component\\ReactAMQP\\": "src/" }
+    },
+    "autoload-dev": {
+        "psr-4": { "Gos\\Component\\ReactAMQP\\Tests\\": "tests/" }
+    },
+    "extra": {
+        "branch-alias": {
+            "dev-master": "1.0.x-dev"
+        }
+    }
+}
