@@ -82,6 +82,8 @@ class Consumer extends EventEmitter
                 return;
             }
         }
+
+        $this->on('close_amqp_consumer', [$this, 'close']);
     }
 
     /**
