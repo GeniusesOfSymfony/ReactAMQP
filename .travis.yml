@@ -1,6 +1,15 @@
 language: php
 
-php: [5.4, 5.5, 5.6]
+matrix:
+    include:
+        - php: 5.4
+        - php: 5.5
+        - php: 5.6
+          env: deps=low
+        - php: 5.6
+          env: deps=high
+        - php: nightly
+    fast_finish: true
 
 sudo: false
 
