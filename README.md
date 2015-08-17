@@ -1,4 +1,6 @@
-# ReactAMQP
+# ReactAMQP 
+
+[![Build Status](https://travis-ci.org/GeniusesOfSymfony/ReactAMQP.svg?branch=master)](https://travis-ci.org/GeniusesOfSymfony/ReactAMQP)
 
 Basic AMQP bindings for [React PHP](https://github.com/reactphp).
 
