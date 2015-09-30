@@ -63,6 +63,8 @@ class Consumer extends EventEmitter
         $this->loop = $loop;
         $this->max = $max;
         $this->timer = $this->loop->addPeriodicTimer($interval, $this);
+
+        $this->on('close_amqp_consumer', [$this, 'close']);
     }
 
     /**
@@ -75,6 +77,7 @@ class Consumer extends EventEmitter
         if ($this->closed) {
             throw new BadMethodCallException('This consumer object is closed and cannot receive any more messages.');
         }
+
         $counter = 0;
         while ($envelope = $this->queue->get()) {
             $this->emit('consume', [$envelope, $this->queue]);
@@ -82,8 +85,6 @@ class Consumer extends EventEmitter
                 return;
             }
         }
-
-        $this->on('close_amqp_consumer', [$this, 'close']);
     }
 
     /**
