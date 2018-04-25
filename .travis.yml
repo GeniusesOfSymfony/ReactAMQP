@@ -12,6 +12,7 @@ matrix:
           env: deps=high
     fast_finish: true
 
+group: edge
 sudo: false
 
 cache:
