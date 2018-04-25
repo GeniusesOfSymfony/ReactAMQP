@@ -1,4 +1,4 @@
-<?php
+<?php declare(strict_types=1);
 
 namespace Gos\Component\ReactAMQP;
 
@@ -6,6 +6,7 @@ use AMQPQueue;
 use BadMethodCallException;
 use Evenement\EventEmitter;
 use React\EventLoop\LoopInterface;
+use React\EventLoop\TimerInterface;
 
 /**
  * Class to listen to an AMQP queue and dispatch listeners when messages are
@@ -25,7 +26,7 @@ class Consumer extends EventEmitter
     /**
      * Event loop.
      *
-     * @var React\EventLoop\LoopInterface
+     * @var LoopInterface
      */
     protected $loop;
 
@@ -45,19 +46,19 @@ class Consumer extends EventEmitter
     protected $max;
 
     /**
-     * @var React\EventLoop\Timer\TimerInterface
+     * @var TimerInterface
      */
     private $timer;
 
     /**
      * Constructor. Stores the message queue and the event loop for use.
      *
-     * @param AMQPQueue                     $queue    Message queue
-     * @param React\EventLoop\LoopInterface $loop     Event loop
-     * @param float                         $interval Interval to check for new messages
-     * @param int                           $max      Max number of messages to consume in one go
+     * @param AMQPQueue     $queue    Message queue
+     * @param LoopInterface $loop     Event loop
+     * @param float|null    $interval Interval to check for new messages
+     * @param int|null      $max      Max number of messages to consume in one go
      */
-    public function __construct(AMQPQueue $queue, LoopInterface $loop, $interval, $max = null)
+    public function __construct(AMQPQueue $queue, LoopInterface $loop, ?float $interval, ?int $max = null)
     {
         $this->queue = $queue;
         $this->loop = $loop;
@@ -70,9 +71,9 @@ class Consumer extends EventEmitter
     /**
      * Method to handle receiving an incoming message.
      *
-     * @throws BadMethodCallException
+     * @throws \AMQPChannelException|\AMQPConnectionException
      */
-    public function __invoke()
+    public function __invoke(): void
     {
         if ($this->closed) {
             throw new BadMethodCallException('This consumer object is closed and cannot receive any more messages.');
@@ -96,7 +97,7 @@ class Consumer extends EventEmitter
      *
      * @return mixed
      */
-    public function __call($method, $args)
+    public function __call(string $method, $args)
     {
         return call_user_func_array([$this->queue, $method], $args);
     }
@@ -104,7 +105,7 @@ class Consumer extends EventEmitter
     /**
      * Method to call when stopping listening to messages.
      */
-    public function close()
+    public function close(): void
     {
         if ($this->closed) {
             return;
@@ -113,7 +114,7 @@ class Consumer extends EventEmitter
         $this->emit('end', [$this]);
         $this->loop->cancelTimer($this->timer);
         $this->removeAllListeners();
-        unset($this->queue);
+        $this->queue = null;
         $this->closed = true;
     }
 }
