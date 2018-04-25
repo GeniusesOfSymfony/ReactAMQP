@@ -19,8 +19,13 @@ cache:
   directories:
     - $HOME/.composer/cache
 
+sudo: required
+
 before_install:
-  - pecl install amqp
+  - sudo su -c 'echo "deb http://archive.ubuntu.com/ubuntu xenial main" > /etc/apt/sources.list.d/xenial.list'
+  - sudo apt update
+  - sudo apt install -y librabbitmq-dev
+  - yes '' | pecl install -f amqp
   - echo "extension=amqp.so" >> `php --ini | grep "Loaded Configuration" | sed -e "s|.*:\s*||"`
 
 install:
