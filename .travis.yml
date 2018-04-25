@@ -12,9 +12,6 @@ matrix:
           env: deps=high
     fast_finish: true
 
-group: edge
-sudo: false
-
 cache:
   directories:
     - $HOME/.composer/cache
@@ -26,7 +23,6 @@ before_install:
   - sudo apt update
   - sudo apt install -y librabbitmq-dev
   - yes '' | pecl install -f amqp
-  - echo "extension=amqp.so" >> `php --ini | grep "Loaded Configuration" | sed -e "s|.*:\s*||"`
 
 install:
   - composer install -n
