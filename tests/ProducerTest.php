@@ -1,29 +1,31 @@
-<?php
+<?php declare(strict_types=1);
 
 namespace Gos\Component\ReactAMQP\Tests;
 
 use AMQPExchangeException;
 use Gos\Component\ReactAMQP\Producer;
-use PHPUnit_Framework_TestCase;
+use PHPUnit\Framework\TestCase;
+use React\EventLoop\LoopInterface;
+use React\EventLoop\TimerInterface;
 
 /**
  * Test case for the producer class.
  *
  * @author  Jeremy Cook <jeremycook0@gmail.com>
  */
-class ProducerTest extends PHPUnit_Framework_TestCase
+class ProducerTest extends TestCase
 {
     /**
      * Mock exchange object.
      *
-     * @var AMQPExchange
+     * @var \AMQPExchange
      */
     protected $exchange;
 
     /**
      * Mock loop object.
      *
-     * @var React\EventLoop\LoopInterface
+     * @var LoopInterface
      */
     protected $loop;
 
@@ -36,16 +38,20 @@ class ProducerTest extends PHPUnit_Framework_TestCase
     protected $counter = 0;
 
     /**
+     * @var TimerInterface
+     */
+    protected $timer;
+
+    /**
      * Bootstrap the test case.
      */
-    protected function setUp()
+    protected function setUp(): void
     {
-        $this->exchange = $this->getMockBuilder('AMQPExchange')
+        $this->exchange = $this->getMockBuilder(\AMQPExchange::class)
             ->disableOriginalConstructor()
             ->getMock();
-        $this->loop = $this->getMock('React\\EventLoop\\LoopInterface');
-
-        $this->timer = $this->getMockBuilder('React\\EventLoop\\Timer\\Timer')
+        $this->loop = $this->getMockBuilder(LoopInterface::class)->getMock();
+        $this->timer = $this->getMockBuilder(TimerInterface::class)
             ->disableOriginalConstructor()
             ->getMock();
 
@@ -56,7 +62,7 @@ class ProducerTest extends PHPUnit_Framework_TestCase
     /**
      * Reset the counter to 0 after each test method has run.
      */
-    protected function tearDown()
+    protected function tearDown(): void
     {
         $this->counter = 0;
     }
@@ -65,7 +71,7 @@ class ProducerTest extends PHPUnit_Framework_TestCase
      * Allows the test class to be used as a callback by the producer. Simply
      * counts the number of times the invoke method is called.
      */
-    public function __invoke()
+    public function __invoke(): void
     {
         ++$this->counter;
     }
@@ -77,7 +83,7 @@ class ProducerTest extends PHPUnit_Framework_TestCase
      *
      * @dataProvider IntervalSupplier
      */
-    public function test__construct($interval)
+    public function test__construct(float $interval): void
     {
         $this->loop->expects($this->once())
             ->method('addPeriodicTimer')
@@ -97,7 +103,7 @@ class ProducerTest extends PHPUnit_Framework_TestCase
      *
      * @dataProvider MessageProvider
      */
-    public function testPublish($message, $routingKey, $flags, array $attributes)
+    public function testPublish(string $message, string $routingKey, int $flags, array $attributes): void
     {
         $producer = new Producer($this->exchange, $this->loop, 1);
         $this->assertAttributeCount(0, 'messages', $producer);
@@ -110,10 +116,11 @@ class ProducerTest extends PHPUnit_Framework_TestCase
      *
      * @param array $messages
      *
-     * @depends testPublish
+     * @throws \AMQPChannelException|\AMQPConnectionException
+     * @depends      testPublish
      * @dataProvider MessagesProvider
      */
-    public function testSendingMessages(array $messages)
+    public function testSendingMessages(array $messages): void
     {
         $producer = new Producer($this->exchange, $this->loop, 1);
         $producer->on('produce', $this);
@@ -134,10 +141,11 @@ class ProducerTest extends PHPUnit_Framework_TestCase
      *
      * @param array $messages
      *
-     * @depends testPublish
+     * @throws \AMQPChannelException|\AMQPConnectionException
+     * @depends      testPublish
      * @dataProvider MessagesProvider
      */
-    public function testSendingMessagesWithError(array $messages)
+    public function testSendingMessagesWithError(array $messages): void
     {
         $producer = new Producer($this->exchange, $this->loop, 1);
         $producer->on('error', $this);
@@ -161,7 +169,7 @@ class ProducerTest extends PHPUnit_Framework_TestCase
      *
      * @dataProvider CallProvider
      */
-    public function test__call($method, $arg)
+    public function test__call($method, $arg): void
     {
         $this->exchange->expects($this->once())
             ->method($method)
@@ -173,7 +181,7 @@ class ProducerTest extends PHPUnit_Framework_TestCase
     /**
      * Tests the close method.
      */
-    public function testClose()
+    public function testClose(): void
     {
         $producer = new Producer($this->exchange, $this->loop, 1);
         $producer->on('end', $this);
@@ -194,7 +202,7 @@ class ProducerTest extends PHPUnit_Framework_TestCase
      * @depends testPublish
      * @dataProvider MessagesProvider
      */
-    public function testCount(array $messages)
+    public function testCount(array $messages): void
     {
         $producer = new Producer($this->exchange, $this->loop, 1);
         $this->assertSame(0, count($producer));
@@ -213,7 +221,7 @@ class ProducerTest extends PHPUnit_Framework_TestCase
      * @depends testPublish
      * @dataProvider MessagesProvider
      */
-    public function testGetIterator(array $messages)
+    public function testGetIterator(array $messages): void
     {
         $producer = new Producer($this->exchange, $this->loop, 1);
         $ret = $producer->getIterator();
@@ -232,9 +240,9 @@ class ProducerTest extends PHPUnit_Framework_TestCase
      * to a closed producer.
      *
      * @depends testClose
-     * @expectedException BadMethodCallException
+     * @expectedException \BadMethodCallException
      */
-    public function testPublishAfterClosingProducer()
+    public function testPublishAfterClosingProducer(): void
     {
         $producer = new Producer($this->exchange, $this->loop, 1);
         $producer->close();
@@ -246,9 +254,10 @@ class ProducerTest extends PHPUnit_Framework_TestCase
      * has been closed.
      *
      * @depends testClose
-     * @expectedException BadMethodCallException
+     * @expectedException \BadMethodCallException
+     * @throws \AMQPChannelException|\AMQPConnectionException
      */
-    public function testInvokeAfterClosingProducer()
+    public function testInvokeAfterClosingProducer(): void
     {
         $producer = new Producer($this->exchange, $this->loop, 1);
         $producer->close();
@@ -260,13 +269,13 @@ class ProducerTest extends PHPUnit_Framework_TestCase
      *
      * @return array
      */
-    public static function IntervalSupplier()
+    public static function IntervalSupplier(): array
     {
-        return array(
+        return [
             [1],
             [2.4],
             [0.05],
-        );
+        ];
     }
 
     /**
@@ -274,12 +283,12 @@ class ProducerTest extends PHPUnit_Framework_TestCase
      *
      * @return array
      */
-    public static function MessageProvider()
+    public static function MessageProvider(): array
     {
-        return array(
+        return [
             ['foo', 'bar', 1 & 1, []],
             ['bar', 'baz', 1 & 0, ['foo' => 'bar']],
-        );
+        ];
     }
 
     /**
@@ -287,14 +296,14 @@ class ProducerTest extends PHPUnit_Framework_TestCase
      *
      * @return array
      */
-    public static function MessagesProvider()
+    public static function MessagesProvider(): array
     {
-        return array(
+        return [
             [[
-            ['foo', 'bar', 1 & 1, []],
-            ['bar', 'baz', 1 & 0, ['foo' => 'bar']],
+                ['foo', 'bar', 1 & 1, []],
+                ['bar', 'baz', 1 & 0, ['foo' => 'bar']],
             ]],
-        );
+        ];
     }
 
     /**
@@ -302,11 +311,11 @@ class ProducerTest extends PHPUnit_Framework_TestCase
      *
      * @return array
      */
-    public static function CallProvider()
+    public static function CallProvider(): array
     {
-        return array(
+        return [
             ['setName', 'foo'],
             ['setType', 'bar'],
-        );
+        ];
     }
 }

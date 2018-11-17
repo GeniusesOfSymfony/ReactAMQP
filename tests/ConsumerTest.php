@@ -1,16 +1,18 @@
-<?php
+<?php declare(strict_types=1);
 
 namespace Gos\Component\ReactAMQP\Tests;
 
 use Gos\Component\ReactAMQP\Consumer;
-use PHPUnit_Framework_TestCase;
+use PHPUnit\Framework\TestCase;
+use React\EventLoop\LoopInterface;
+use React\EventLoop\TimerInterface;
 
 /**
  * Test case for the consumer class.
  *
  * @author  Jeremy Cook <jeremycook0@gmail.com>
  */
-class ConsumerTest extends PHPUnit_Framework_TestCase
+class ConsumerTest extends TestCase
 {
     /**
      * Mock queue object.
@@ -22,7 +24,7 @@ class ConsumerTest extends PHPUnit_Framework_TestCase
     /**
      * Mock loop object.
      *
-     * @var React\EventLoop\LoopInterface
+     * @var LoopInterface
      */
     protected $loop;
 
@@ -34,22 +36,22 @@ class ConsumerTest extends PHPUnit_Framework_TestCase
     protected $counter = 0;
 
     /**
-     * @var \React\EventLoop\Timer\Timer
+     * @var TimerInterface
      */
     protected $timer;
 
     /**
      * Bootstrap the test case.
      */
-    protected function setUp()
+    protected function setUp(): void
     {
-        $this->queue = $this->getMockBuilder('AMQPQueue')
+        $this->queue = $this->getMockBuilder(\AMQPQueue::class)
             ->disableOriginalConstructor()
             ->getMock();
-        $this->loop = $this->getMockBuilder('React\\EventLoop\\LoopInterface')
+        $this->loop = $this->getMockBuilder(LoopInterface::class)
             ->getMock();
 
-        $this->timer = $this->getMockBuilder('React\\EventLoop\\Timer\\Timer')
+        $this->timer = $this->getMockBuilder(TimerInterface::class)
             ->disableOriginalConstructor()
             ->getMock();
 
@@ -60,7 +62,7 @@ class ConsumerTest extends PHPUnit_Framework_TestCase
     /**
      * Tear down resets the counter after each test method has run.
      */
-    protected function tearDown()
+    protected function tearDown(): void
     {
         $this->counter = 0;
     }
@@ -69,7 +71,7 @@ class ConsumerTest extends PHPUnit_Framework_TestCase
      * Allows the test class to be used as a callback by the consumer. Simply
      * counts the number of times the invoke method is called.
      */
-    public function __invoke()
+    public function __invoke(): void
     {
         ++$this->counter;
     }
@@ -77,16 +79,16 @@ class ConsumerTest extends PHPUnit_Framework_TestCase
     /**
      * Tests the constructor for the consumer class.
      *
-     * @param int   $interval Interval for the loop
-     * @param mixed $max      Max number of messages to consume
+     * @param float|null $interval Interval for the loop
+     * @param int|null $max      Max number of messages to consume
      *
      * @dataProvider IntervalMaxSupplier
      */
-    public function test__construct($interval, $max)
+    public function test__construct(?float $interval, ?int $max): void
     {
         $this->loop->expects($this->once())
             ->method('addPeriodicTimer')
-            ->with($this->identicalTo($interval), $this->isInstanceOf('Gos\\Component\\ReactAMQP\\Consumer'));
+            ->with($this->identicalTo($interval), $this->isInstanceOf(Consumer::class));
         $consumer = new Consumer($this->queue, $this->loop, $interval, $max);
         $this->assertAttributeSame($this->queue, 'queue', $consumer);
         $this->assertAttributeSame($this->loop, 'loop', $consumer);
@@ -96,13 +98,14 @@ class ConsumerTest extends PHPUnit_Framework_TestCase
     /**
      * Basic test case that asserts that messages can be consumed from the
      * queue.
+     * @throws \AMQPChannelException|\AMQPConnectionException
      */
-    public function testConsumingMessages()
+    public function testConsumingMessages(): void
     {
         $this->queue->expects($this->exactly(4))
             ->method('get')
             ->will($this->onConsecutiveCalls('foo', 'bar', 'baz', false));
-        $consumer = new Consumer($this->queue, $this->loop, 1);
+        $consumer = new Consumer($this->queue, $this->loop, 1.0);
         $consumer->on('consume', $this);
         $consumer();
         $this->assertSame(3, $this->counter);
@@ -114,14 +117,16 @@ class ConsumerTest extends PHPUnit_Framework_TestCase
      *
      * @param int $max
      *
+     * @throws \AMQPChannelException|\AMQPConnectionException
+     * 
      * @dataProvider MaxSupplier
      */
-    public function testConsumingMessagesWithMaxCount($max)
+    public function testConsumingMessagesWithMaxCount($max): void
     {
         $this->queue->expects($this->exactly($max))
             ->method('get')
             ->will($this->returnValue('foobar'));
-        $consumer = new Consumer($this->queue, $this->loop, 1, $max);
+        $consumer = new Consumer($this->queue, $this->loop, 1.0, $max);
         $consumer->on('consume', $this);
         $consumer();
         $this->assertSame($max, $this->counter);
@@ -136,21 +141,21 @@ class ConsumerTest extends PHPUnit_Framework_TestCase
      *
      * @dataProvider CallSupplier
      */
-    public function test__call($method, $arg)
+    public function test__call($method, $arg): void
     {
         $this->queue->expects($this->once())
             ->method($method)
             ->with($this->identicalTo($arg));
-        $consumer = new Consumer($this->queue, $this->loop, 1);
+        $consumer = new Consumer($this->queue, $this->loop, 1.0);
         $consumer->$method($arg);
     }
 
     /**
      * Tests the close method of the consumer.
      */
-    public function testClose()
+    public function testClose(): void
     {
-        $consumer = new Consumer($this->queue, $this->loop, 1);
+        $consumer = new Consumer($this->queue, $this->loop, 1.0);
         $consumer->on('end', $this);
         $this->loop->expects($this->once())
             ->method('cancelTimer')
@@ -166,11 +171,12 @@ class ConsumerTest extends PHPUnit_Framework_TestCase
      * after closing it.
      *
      * @depends testClose
-     * @expectedException BadMethodCallException
+     * @expectedException \BadMethodCallException
+     * @throws \AMQPChannelException|\AMQPConnectionException
      */
-    public function testInvokingConsumerAfterClosing()
+    public function testInvokingConsumerAfterClosing(): void
     {
-        $consumer = new Consumer($this->queue, $this->loop, 1);
+        $consumer = new Consumer($this->queue, $this->loop, 1.0);
         $consumer->close();
         $consumer();
     }
@@ -180,13 +186,13 @@ class ConsumerTest extends PHPUnit_Framework_TestCase
      *
      * @return array
      */
-    public static function IntervalMaxSupplier()
+    public static function IntervalMaxSupplier(): array 
     {
-        return array(
+        return [
             [1, null],
             [1, 1],
             [0.05, 10],
-        );
+        ];
     }
 
     /**
@@ -194,13 +200,13 @@ class ConsumerTest extends PHPUnit_Framework_TestCase
      *
      * @return array
      */
-    public static function MaxSupplier()
+    public static function MaxSupplier(): array 
     {
-        return array(
+        return [
             [1],
             [10],
             [45],
-        );
+        ];
     }
 
     /**
@@ -209,12 +215,12 @@ class ConsumerTest extends PHPUnit_Framework_TestCase
      *
      * @return array
      */
-    public static function CallSupplier()
+    public static function CallSupplier(): array 
     {
-        return array(
+        return [
             ['getArgument', 'foo'],
             ['nack', 'bar'],
             ['cancel', 'baz'],
-        );
+        ];
     }
 }

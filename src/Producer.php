@@ -1,4 +1,4 @@
-<?php
+<?php declare(strict_types=1);
 
 namespace Gos\Component\ReactAMQP;
 
@@ -9,6 +9,7 @@ use Countable;
 use Evenement\EventEmitter;
 use IteratorAggregate;
 use React\EventLoop\LoopInterface;
+use React\EventLoop\TimerInterface;
 
 /**
  * Class to publish messages to an AMQP exchange.
@@ -27,7 +28,7 @@ class Producer extends EventEmitter implements Countable, IteratorAggregate
     /**
      * Event loop.
      *
-     * @var React\EventLoop\LoopInterface
+     * @var LoopInterface
      */
     protected $loop;
 
@@ -43,19 +44,19 @@ class Producer extends EventEmitter implements Countable, IteratorAggregate
      *
      * @var array
      */
-    protected $messages = array();
+    protected $messages = [];
 
     /**
-     * @var \React\EventLoop\Timer\Timer
+     * @var TimerInterface
      */
     protected $timer;
 
     /**
      * Constructor. Stores the message queue and the event loop for use.
      *
-     * @param AMQPExchange                  $exchange Message queue
-     * @param React\EventLoop\LoopInterface $loop     Event loop
-     * @param float                         $interval Interval to run loop to send messages
+     * @param AMQPExchange  $exchange Message queue
+     * @param LoopInterface $loop     Event loop
+     * @param float         $interval Interval to run loop to send messages
      */
     public function __construct(AMQPExchange $exchange, LoopInterface $loop, $interval)
     {
@@ -70,7 +71,7 @@ class Producer extends EventEmitter implements Countable, IteratorAggregate
      *
      * @return int
      */
-    public function count()
+    public function count(): int
     {
         return count($this->messages);
     }
@@ -81,7 +82,7 @@ class Producer extends EventEmitter implements Countable, IteratorAggregate
      *
      * @return array
      */
-    public function getIterator()
+    public function getIterator(): array
     {
         return $this->messages;
     }
@@ -90,14 +91,14 @@ class Producer extends EventEmitter implements Countable, IteratorAggregate
      * Method to publish a message to an AMQP exchange. Has the same method
      * signature as the exchange objects publish method.
      *
-     * @param string $message    Message
-     * @param string $routingKey Routing key
-     * @param int    $flags      Flags
-     * @param array  $attributes Attributes
+     * @param string   $message    Message
+     * @param string   $routingKey Routing key
+     * @param int|null $flags      Flags
+     * @param array    $attributes Attributes
      *
      * @throws BadMethodCallException
      */
-    public function publish($message, $routingKey, $flags = null, $attributes = [])
+    public function publish(string $message, string $routingKey, ?int $flags = null, $attributes = []): void
     {
         if ($this->closed) {
             throw new BadMethodCallException('This Producer object is closed and cannot send any more messages.');
@@ -113,9 +114,9 @@ class Producer extends EventEmitter implements Countable, IteratorAggregate
     /**
      * Callback to dispatch on the loop timer.
      *
-     * @throws BadMethodCallException
+     * @throws \AMQPChannelException|\AMQPConnectionException
      */
-    public function __invoke()
+    public function __invoke(): void
     {
         if ($this->closed) {
             throw new BadMethodCallException('This Producer object is closed and cannot send any more messages.');
@@ -124,7 +125,7 @@ class Producer extends EventEmitter implements Countable, IteratorAggregate
             try {
                 $this->exchange->publish($message['message'], $message['routingKey'], $message['flags'], $message['attributes']);
                 unset($this->messages[$key]);
-                $this->emit('produce', $message);
+                $this->emit('produce', array_values($message));
             } catch (AMQPExchangeException $e) {
                 $this->emit('error', [$e]);
             }
@@ -148,7 +149,7 @@ class Producer extends EventEmitter implements Countable, IteratorAggregate
     /**
      * Method to call when stopping listening to messages.
      */
-    public function close()
+    public function close(): void
     {
         if ($this->closed) {
             return;
@@ -157,7 +158,7 @@ class Producer extends EventEmitter implements Countable, IteratorAggregate
         $this->emit('end', [$this]);
         $this->loop->cancelTimer($this->timer);
         $this->removeAllListeners();
-        unset($this->exchange);
+        $this->exchange = null;
         $this->closed = true;
     }
 }

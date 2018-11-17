@@ -2,28 +2,27 @@ language: php
 
 matrix:
     include:
-        - php: 5.4
+        - php: 7.1
           env: deps=low
-        - php: 5.4
+        - php: 7.1
           env: deps=high
-        - php: 5.5
+        - php: 7.2
           env: deps=low
-        - php: 5.5
-          env: deps=high
-        - php: 5.6
-          env: deps=low
-        - php: 5.6
+        - php: 7.2
           env: deps=high
     fast_finish: true
-
-sudo: false
 
 cache:
   directories:
     - $HOME/.composer/cache
 
+sudo: required
+
 before_install:
-  - echo "extension=amqp.so" >> `php --ini | grep "Loaded Configuration" | sed -e "s|.*:\s*||"`
+  - sudo su -c 'echo "deb http://archive.ubuntu.com/ubuntu xenial main universe" > /etc/apt/sources.list.d/xenial.list'
+  - sudo apt update
+  - sudo apt install -y librabbitmq-dev
+  - yes '' | pecl install -f amqp
 
 install:
   - composer install -n
