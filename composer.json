@@ -20,7 +20,8 @@
         "react/event-loop": "^1.0"
     },
     "require-dev": {
-        "phpunit/phpunit": "^8."
+        "friendsofphp/php-cs-fixer": "^2.15.1",
+        "phpunit/phpunit": "^8.1"
     },
     "autoload": {
         "psr-4": { "Gos\\Component\\ReactAMQP\\": "src/" }

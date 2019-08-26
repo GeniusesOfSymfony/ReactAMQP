@@ -56,7 +56,7 @@ class ProducerTest extends TestCase
             ->getMock();
 
         $this->loop->expects($this->any())->method('addPeriodicTimer')
-            ->will($this->returnValue($this->timer));
+            ->willReturn($this->timer);
     }
 
     /**
@@ -125,13 +125,13 @@ class ProducerTest extends TestCase
         $producer = new Producer($this->exchange, $this->loop, 1);
         $producer->on('produce', $this);
         foreach ($messages as $message) {
-            call_user_func_array(array($producer, 'publish'), $message);
+            \call_user_func_array([$producer, 'publish'], $message);
         }
-        $this->exchange->expects($this->exactly(count($messages)))
+        $this->exchange->expects($this->exactly(\count($messages)))
             ->method('publish');
-        $this->assertAttributeCount(count($messages), 'messages', $producer);
+        $this->assertAttributeCount(\count($messages), 'messages', $producer);
         $producer();
-        $this->assertSame(count($messages), $this->counter);
+        $this->assertSame(\count($messages), $this->counter);
         $this->assertAttributeCount(0, 'messages', $producer);
     }
 
@@ -150,14 +150,14 @@ class ProducerTest extends TestCase
         $producer = new Producer($this->exchange, $this->loop, 1);
         $producer->on('error', $this);
         foreach ($messages as $message) {
-            call_user_func_array(array($producer, 'publish'), $message);
+            \call_user_func_array([$producer, 'publish'], $message);
         }
-        $this->exchange->expects($this->exactly(count($messages)))
+        $this->exchange->expects($this->exactly(\count($messages)))
             ->method('publish')
             ->will($this->throwException(new AMQPExchangeException()));
         $producer();
-        $this->assertSame(count($messages), $this->counter);
-        $this->assertAttributeCount(count($messages), 'messages', $producer);
+        $this->assertSame(\count($messages), $this->counter);
+        $this->assertAttributeCount(\count($messages), 'messages', $producer);
     }
 
     /**
@@ -205,11 +205,11 @@ class ProducerTest extends TestCase
     public function testCount(array $messages): void
     {
         $producer = new Producer($this->exchange, $this->loop, 1);
-        $this->assertSame(0, count($producer));
+        $this->assertCount(0, $producer);
         foreach ($messages as $message) {
-            call_user_func_array(array($producer, 'publish'), $message);
+            \call_user_func_array([$producer, 'publish'], $message);
         }
-        $this->assertSame(count($messages), count($producer));
+        $this->assertSame(\count($messages), \count($producer));
     }
 
     /**
@@ -225,13 +225,13 @@ class ProducerTest extends TestCase
     {
         $producer = new Producer($this->exchange, $this->loop, 1);
         $ret = $producer->getIterator();
-        $this->assertInternalType('array', $ret);
+        $this->assertIsArray($ret);
         $this->assertEmpty($ret);
         foreach ($messages as $message) {
-            call_user_func_array(array($producer, 'publish'), $message);
+            \call_user_func_array([$producer, 'publish'], $message);
         }
         $ret = $producer->getIterator();
-        $this->assertInternalType('array', $ret);
+        $this->assertIsArray($ret);
         $this->assertNotEmpty($ret);
     }
 
@@ -240,10 +240,11 @@ class ProducerTest extends TestCase
      * to a closed producer.
      *
      * @depends testClose
-     * @expectedException \BadMethodCallException
      */
     public function testPublishAfterClosingProducer(): void
     {
+        $this->expectException(\BadMethodCallException::class);
+
         $producer = new Producer($this->exchange, $this->loop, 1);
         $producer->close();
         $producer->publish('foo', 'bar');
@@ -254,11 +255,13 @@ class ProducerTest extends TestCase
      * has been closed.
      *
      * @depends testClose
-     * @expectedException \BadMethodCallException
+     *
      * @throws \AMQPChannelException|\AMQPConnectionException
      */
     public function testInvokeAfterClosingProducer(): void
     {
+        $this->expectException(\BadMethodCallException::class);
+
         $producer = new Producer($this->exchange, $this->loop, 1);
         $producer->close();
         $producer();

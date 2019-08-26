@@ -73,7 +73,7 @@ class Producer extends EventEmitter implements Countable, IteratorAggregate
      */
     public function count(): int
     {
-        return count($this->messages);
+        return \count($this->messages);
     }
 
     /**
@@ -143,7 +143,7 @@ class Producer extends EventEmitter implements Countable, IteratorAggregate
      */
     public function __call($method, $args)
     {
-        return call_user_func_array([$this->exchange, $method], $args);
+        return \call_user_func_array([$this->exchange, $method], $args);
     }
 
     /**

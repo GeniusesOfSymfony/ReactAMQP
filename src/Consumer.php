@@ -99,7 +99,7 @@ class Consumer extends EventEmitter
      */
     public function __call(string $method, $args)
     {
-        return call_user_func_array([$this->queue, $method], $args);
+        return \call_user_func_array([$this->queue, $method], $args);
     }
 
     /**

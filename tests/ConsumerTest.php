@@ -56,7 +56,7 @@ class ConsumerTest extends TestCase
             ->getMock();
 
         $this->loop->expects($this->any())->method('addPeriodicTimer')
-            ->will($this->returnValue($this->timer));
+            ->willReturn($this->timer);
     }
 
     /**
@@ -80,7 +80,7 @@ class ConsumerTest extends TestCase
      * Tests the constructor for the consumer class.
      *
      * @param float|null $interval Interval for the loop
-     * @param int|null $max      Max number of messages to consume
+     * @param int|null   $max      Max number of messages to consume
      *
      * @dataProvider IntervalMaxSupplier
      */
@@ -98,6 +98,7 @@ class ConsumerTest extends TestCase
     /**
      * Basic test case that asserts that messages can be consumed from the
      * queue.
+     *
      * @throws \AMQPChannelException|\AMQPConnectionException
      */
     public function testConsumingMessages(): void
@@ -118,14 +119,14 @@ class ConsumerTest extends TestCase
      * @param int $max
      *
      * @throws \AMQPChannelException|\AMQPConnectionException
-     * 
+     *
      * @dataProvider MaxSupplier
      */
     public function testConsumingMessagesWithMaxCount($max): void
     {
         $this->queue->expects($this->exactly($max))
             ->method('get')
-            ->will($this->returnValue('foobar'));
+            ->willReturn('foobar');
         $consumer = new Consumer($this->queue, $this->loop, 1.0, $max);
         $consumer->on('consume', $this);
         $consumer();
@@ -171,11 +172,13 @@ class ConsumerTest extends TestCase
      * after closing it.
      *
      * @depends testClose
-     * @expectedException \BadMethodCallException
+     *
      * @throws \AMQPChannelException|\AMQPConnectionException
      */
     public function testInvokingConsumerAfterClosing(): void
     {
+        $this->expectException(\BadMethodCallException::class);
+
         $consumer = new Consumer($this->queue, $this->loop, 1.0);
         $consumer->close();
         $consumer();
@@ -186,7 +189,7 @@ class ConsumerTest extends TestCase
      *
      * @return array
      */
-    public static function IntervalMaxSupplier(): array 
+    public static function IntervalMaxSupplier(): array
     {
         return [
             [1, null],
@@ -200,7 +203,7 @@ class ConsumerTest extends TestCase
      *
      * @return array
      */
-    public static function MaxSupplier(): array 
+    public static function MaxSupplier(): array
     {
         return [
             [1],
@@ -215,7 +218,7 @@ class ConsumerTest extends TestCase
      *
      * @return array
      */
-    public static function CallSupplier(): array 
+    public static function CallSupplier(): array
     {
         return [
             ['getArgument', 'foo'],
