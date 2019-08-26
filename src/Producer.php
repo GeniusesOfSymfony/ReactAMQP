@@ -2,12 +2,7 @@
 
 namespace Gos\Component\ReactAMQP;
 
-use AMQPExchange;
-use AMQPExchangeException;
-use BadMethodCallException;
-use Countable;
 use Evenement\EventEmitter;
-use IteratorAggregate;
 use React\EventLoop\LoopInterface;
 use React\EventLoop\TimerInterface;
 
@@ -16,93 +11,63 @@ use React\EventLoop\TimerInterface;
  *
  * @author  Jeremy Cook <jeremycook0@gmail.com>
  */
-class Producer extends EventEmitter implements Countable, IteratorAggregate
+final class Producer extends EventEmitter implements \Countable, \IteratorAggregate
 {
     /**
-     * AMQP message exchange to send messages to.
-     *
-     * @var AMQPExchange
+     * @var \AMQPExchange
      */
-    protected $exchange;
+    private $exchange;
 
     /**
-     * Event loop.
-     *
      * @var LoopInterface
      */
-    protected $loop;
+    private $loop;
 
     /**
-     * Flag to indicate if this listener is closed.
-     *
      * @var bool
      */
-    protected $closed = false;
+    private $closed = false;
 
     /**
-     * Collection of messages waiting to be sent.
-     *
      * @var array
      */
-    protected $messages = [];
+    private $messages = [];
 
     /**
      * @var TimerInterface
      */
-    protected $timer;
+    private $timer;
 
-    /**
-     * Constructor. Stores the message queue and the event loop for use.
-     *
-     * @param AMQPExchange  $exchange Message queue
-     * @param LoopInterface $loop     Event loop
-     * @param float         $interval Interval to run loop to send messages
-     */
-    public function __construct(AMQPExchange $exchange, LoopInterface $loop, $interval)
+    public function __construct(\AMQPExchange $exchange, LoopInterface $loop, float $interval)
     {
         $this->exchange = $exchange;
         $this->loop = $loop;
         $this->timer = $this->loop->addPeriodicTimer($interval, $this);
     }
 
-    /**
-     * Returns the number of messages waiting to be sent. Implements the
-     * countable interface.
-     *
-     * @return int
-     */
     public function count(): int
     {
         return \count($this->messages);
     }
 
-    /**
-     * Returns the array of messages stored. Completes the implementation of
-     * the iteratorAggregate interface.
-     *
-     * @return array
-     */
     public function getIterator(): array
     {
         return $this->messages;
     }
 
     /**
-     * Method to publish a message to an AMQP exchange. Has the same method
-     * signature as the exchange objects publish method.
+     * Publishes a message to an AMQP exchange.
      *
-     * @param string   $message    Message
-     * @param string   $routingKey Routing key
-     * @param int|null $flags      Flags
-     * @param array    $attributes Attributes
+     * Has the same method signature as the exchange object's publish method.
      *
-     * @throws BadMethodCallException
+     * @throws \BadMethodCallException if the producer connection has been closed
      */
-    public function publish(string $message, string $routingKey, ?int $flags = null, $attributes = []): void
+    public function publish(string $message, string $routingKey, int $flags = 0 /* AMQP_NOPARAM */, array $attributes = []): void
     {
         if ($this->closed) {
-            throw new BadMethodCallException('This Producer object is closed and cannot send any more messages.');
+            throw new \BadMethodCallException('This Producer object is closed and cannot send any more messages.');
         }
+
         $this->messages[] = [
             'message' => $message,
             'routingKey' => $routingKey,
@@ -112,32 +77,31 @@ class Producer extends EventEmitter implements Countable, IteratorAggregate
     }
 
     /**
-     * Callback to dispatch on the loop timer.
+     * Handles publishing outgoing messages.
      *
-     * @throws \AMQPChannelException|\AMQPConnectionException
+     * @throws \AMQPChannelException
+     * @throws \AMQPConnectionException
+     * @throws \BadMethodCallException  if the consumer connection has been closed
      */
     public function __invoke(): void
     {
         if ($this->closed) {
-            throw new BadMethodCallException('This Producer object is closed and cannot send any more messages.');
+            throw new \BadMethodCallException('This Producer object is closed and cannot send any more messages.');
         }
+
         foreach ($this->messages as $key => $message) {
             try {
                 $this->exchange->publish($message['message'], $message['routingKey'], $message['flags'], $message['attributes']);
                 unset($this->messages[$key]);
                 $this->emit('produce', array_values($message));
-            } catch (AMQPExchangeException $e) {
+            } catch (\AMQPExchangeException $e) {
                 $this->emit('error', [$e]);
             }
         }
     }
 
     /**
-     * Allows calls to unknown methods to be passed through to the exchange
-     * stored.
-     *
-     * @param string $method Method name
-     * @param mixed  $args   Args to pass
+     * Allows calls to unknown methods to be passed through to the exchange store.
      *
      * @return mixed
      */
@@ -146,9 +110,6 @@ class Producer extends EventEmitter implements Countable, IteratorAggregate
         return \call_user_func_array([$this->exchange, $method], $args);
     }
 
-    /**
-     * Method to call when stopping listening to messages.
-     */
     public function close(): void
     {
         if ($this->closed) {
@@ -160,5 +121,10 @@ class Producer extends EventEmitter implements Countable, IteratorAggregate
         $this->removeAllListeners();
         $this->exchange = null;
         $this->closed = true;
+    }
+
+    public function isClosed(): bool
+    {
+        return true === $this->closed;
     }
 }

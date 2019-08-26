@@ -2,63 +2,47 @@
 
 namespace Gos\Component\ReactAMQP;
 
-use AMQPQueue;
-use BadMethodCallException;
 use Evenement\EventEmitter;
 use React\EventLoop\LoopInterface;
 use React\EventLoop\TimerInterface;
 
 /**
- * Class to listen to an AMQP queue and dispatch listeners when messages are
- * received.
+ * Class to listen to an AMQP queue and dispatch listeners when messages are received.
  *
- * @author  Jeremy Cook <jeremycook0@gmail.com>
+ * @author Jeremy Cook <jeremycook0@gmail.com>
  */
-class Consumer extends EventEmitter
+final class Consumer extends EventEmitter
 {
     /**
-     * AMQP message queue to read messages from.
-     *
-     * @var AMQPQueue
+     * @var \AMQPQueue
      */
-    protected $queue;
+    private $queue;
 
     /**
-     * Event loop.
-     *
      * @var LoopInterface
      */
-    protected $loop;
+    private $loop;
 
     /**
-     * Flag to indicate if this listener is closed.
-     *
      * @var bool
      */
-    protected $closed = false;
+    private $closed = false;
 
     /**
-     * Max number of messages to consume in a 'batch'. Should stop the event
-     * loop stopping on this class for protracted lengths of time.
+     * Max number of messages to consume in a 'batch'.
+     *
+     * Should stop the event loop stopping on this class for protracted lengths of time.
      *
      * @var int
      */
-    protected $max;
+    private $max;
 
     /**
      * @var TimerInterface
      */
     private $timer;
 
-    /**
-     * Constructor. Stores the message queue and the event loop for use.
-     *
-     * @param AMQPQueue     $queue    Message queue
-     * @param LoopInterface $loop     Event loop
-     * @param float|null    $interval Interval to check for new messages
-     * @param int|null      $max      Max number of messages to consume in one go
-     */
-    public function __construct(AMQPQueue $queue, LoopInterface $loop, ?float $interval, ?int $max = null)
+    public function __construct(\AMQPQueue $queue, LoopInterface $loop, float $interval, ?int $max = null)
     {
         $this->queue = $queue;
         $this->loop = $loop;
@@ -69,19 +53,23 @@ class Consumer extends EventEmitter
     }
 
     /**
-     * Method to handle receiving an incoming message.
+     * Handles receiving an incoming message.
      *
-     * @throws \AMQPChannelException|\AMQPConnectionException
+     * @throws \AMQPChannelException
+     * @throws \AMQPConnectionException
+     * @throws \BadMethodCallException  if the consumer connection has been closed
      */
     public function __invoke(): void
     {
         if ($this->closed) {
-            throw new BadMethodCallException('This consumer object is closed and cannot receive any more messages.');
+            throw new \BadMethodCallException('This consumer object is closed and cannot receive any more messages.');
         }
 
         $counter = 0;
+
         while ($envelope = $this->queue->get()) {
             $this->emit('consume', [$envelope, $this->queue]);
+
             if ($this->max && ++$counter >= $this->max) {
                 return;
             }
@@ -89,11 +77,7 @@ class Consumer extends EventEmitter
     }
 
     /**
-     * Allows calls to unknown methods to be passed through to the queue
-     * stored.
-     *
-     * @param string $method Method name
-     * @param mixed  $args   Args to pass
+     * Allows calls to unknown methods to be passed through to the queue store.
      *
      * @return mixed
      */
@@ -102,9 +86,6 @@ class Consumer extends EventEmitter
         return \call_user_func_array([$this->queue, $method], $args);
     }
 
-    /**
-     * Method to call when stopping listening to messages.
-     */
     public function close(): void
     {
         if ($this->closed) {
@@ -116,5 +97,10 @@ class Consumer extends EventEmitter
         $this->removeAllListeners();
         $this->queue = null;
         $this->closed = true;
+    }
+
+    public function isClosed(): bool
+    {
+        return true === $this->closed;
     }
 }

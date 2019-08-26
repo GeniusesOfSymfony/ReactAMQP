@@ -2,74 +2,61 @@
 
 namespace Gos\Component\ReactAMQP\Tests;
 
-use AMQPExchangeException;
 use Gos\Component\ReactAMQP\Producer;
+use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use React\EventLoop\LoopInterface;
 use React\EventLoop\TimerInterface;
 
 /**
- * Test case for the producer class.
+ * @author Jeremy Cook <jeremycook0@gmail.com>
  *
- * @author  Jeremy Cook <jeremycook0@gmail.com>
+ * @requires extension amqp
  */
-class ProducerTest extends TestCase
+final class ProducerTest extends TestCase
 {
     /**
-     * Mock exchange object.
-     *
-     * @var \AMQPExchange
+     * @var \AMQPExchange|MockObject
      */
-    protected $exchange;
+    private $exchange;
 
     /**
-     * Mock loop object.
-     *
      * @var LoopInterface
      */
-    protected $loop;
+    private $loop;
 
     /**
-     * Counter to keep track of the number of times this object is called as a
-     * callback.
+     * Counter to keep track of the number of times this object is called as a callback.
      *
      * @var int
      */
-    protected $counter = 0;
+    private $counter = 0;
 
     /**
      * @var TimerInterface
      */
-    protected $timer;
+    private $timer;
 
-    /**
-     * Bootstrap the test case.
-     */
     protected function setUp(): void
     {
-        $this->exchange = $this->getMockBuilder(\AMQPExchange::class)
-            ->disableOriginalConstructor()
-            ->getMock();
-        $this->loop = $this->getMockBuilder(LoopInterface::class)->getMock();
-        $this->timer = $this->getMockBuilder(TimerInterface::class)
-            ->disableOriginalConstructor()
-            ->getMock();
+        $this->exchange = $this->createMock(\AMQPExchange::class);
+        $this->loop = $this->createMock(LoopInterface::class);
+        $this->timer = $this->createMock(TimerInterface::class);
 
-        $this->loop->expects($this->any())->method('addPeriodicTimer')
+        $this->loop->expects($this->any())
+            ->method('addPeriodicTimer')
             ->willReturn($this->timer);
     }
 
-    /**
-     * Reset the counter to 0 after each test method has run.
-     */
     protected function tearDown(): void
     {
         $this->counter = 0;
     }
 
     /**
-     * Allows the test class to be used as a callback by the producer. Simply
-     * counts the number of times the invoke method is called.
+     * Allows the test class to be used as a callback by the producer.
+     *
+     * Simply counts the number of times the invoke method is called.
      */
     public function __invoke(): void
     {
@@ -77,171 +64,153 @@ class ProducerTest extends TestCase
     }
 
     /**
-     * Tests the constructor for the producer.
-     *
-     * @param float $interval
-     *
-     * @dataProvider IntervalSupplier
+     * @dataProvider intervalSupplier
      */
-    public function test__construct(float $interval): void
+    public function testProducerIsInstantiatedAndRegisteredToTheLoop(float $interval): void
     {
         $this->loop->expects($this->once())
             ->method('addPeriodicTimer')
-            ->with($this->identicalTo($interval), $this->isInstanceOf('Gos\\Component\\ReactAMQP\\Producer'));
-        $producer = new Producer($this->exchange, $this->loop, $interval);
-        $this->assertAttributeSame($this->loop, 'loop', $producer);
-        $this->assertAttributeSame($this->exchange, 'exchange', $producer);
+            ->with($this->identicalTo($interval), $this->isInstanceOf(Producer::class));
+
+        new Producer($this->exchange, $this->loop, $interval);
     }
 
     /**
      * Tests the publish method of the producer.
      *
-     * @param string $message    Message
-     * @param string $routingKey Routing key
-     * @param int    $flags      Flags, if any
-     * @param array  $attributes Attributes
-     *
-     * @dataProvider MessageProvider
+     * @dataProvider messageProvider
      */
     public function testPublish(string $message, string $routingKey, int $flags, array $attributes): void
     {
         $producer = new Producer($this->exchange, $this->loop, 1);
+
         $this->assertCount(0, $producer);
+
         $producer->publish($message, $routingKey, $flags, $attributes);
-		$this->assertCount(1, $producer);
+
+        $this->assertCount(1, $producer);
     }
 
     /**
      * Asserts that messages stored in the object can be sent.
      *
-     * @param array $messages
-     *
-     * @throws \AMQPChannelException|\AMQPConnectionException
      * @depends      testPublish
-     * @dataProvider MessagesProvider
+     * @dataProvider messagesProvider
      */
     public function testSendingMessages(array $messages): void
     {
         $producer = new Producer($this->exchange, $this->loop, 1);
         $producer->on('produce', $this);
+
         foreach ($messages as $message) {
             \call_user_func_array([$producer, 'publish'], $message);
         }
+
         $this->exchange->expects($this->exactly(\count($messages)))
             ->method('publish');
+
         $this->assertCount(\count($messages), $producer);
+
         $producer();
+
         $this->assertSame(\count($messages), $this->counter);
         $this->assertCount(0, $producer);
     }
 
     /**
-     * Tests the behaviour of the producer when an exception is raised by the
-     * exchange.
+     * Tests the behaviour of the producer when an exception is raised by the exchange.
      *
-     * @param array $messages
-     *
-     * @throws \AMQPChannelException|\AMQPConnectionException
      * @depends      testPublish
-     * @dataProvider MessagesProvider
+     * @dataProvider messagesProvider
      */
     public function testSendingMessagesWithError(array $messages): void
     {
         $producer = new Producer($this->exchange, $this->loop, 1);
         $producer->on('error', $this);
+
         foreach ($messages as $message) {
             \call_user_func_array([$producer, 'publish'], $message);
         }
+
         $this->exchange->expects($this->exactly(\count($messages)))
             ->method('publish')
-            ->will($this->throwException(new AMQPExchangeException()));
+            ->will($this->throwException(new \AMQPExchangeException()));
+
         $producer();
+
         $this->assertSame(\count($messages), $this->counter);
         $this->assertCount(\count($messages), $producer);
     }
 
     /**
-     * Asserts that calls to unknown methods are proxied through to the
-     * exchange object.
-     *
-     * @param string $method Method name
-     * @param string $arg    Arg to pass
-     *
-     * @dataProvider CallProvider
+     * @dataProvider callProvider
      */
-    public function test__call($method, $arg): void
+    public function testTheProducerProxiesMethodCalls($method, $arg): void
     {
         $this->exchange->expects($this->once())
             ->method($method)
             ->with($arg);
+
         $producer = new Producer($this->exchange, $this->loop, 1);
         $producer->$method($arg);
     }
 
-    /**
-     * Tests the close method.
-     */
     public function testClose(): void
     {
         $producer = new Producer($this->exchange, $this->loop, 1);
         $producer->on('end', $this);
+
         $this->loop->expects($this->once())
             ->method('cancelTimer')
             ->with($this->timer);
+
         $producer->close();
-        $this->assertAttributeSame(true, 'closed', $producer);
-        $this->assertAttributeSame(null, 'exchange', $producer);
+
+        $this->assertTrue($producer->isClosed());
         $this->assertSame(1, $this->counter);
     }
 
     /**
-     * Asserts that the producer can be successfully 'counted'.
-     *
-     * @param array $messages
-     *
      * @depends testPublish
-     * @dataProvider MessagesProvider
+     * @dataProvider messagesProvider
      */
     public function testCount(array $messages): void
     {
         $producer = new Producer($this->exchange, $this->loop, 1);
         $this->assertCount(0, $producer);
+
         foreach ($messages as $message) {
             \call_user_func_array([$producer, 'publish'], $message);
         }
+
         $this->assertSame(\count($messages), \count($producer));
     }
 
     /**
-     * Tests the getIterator method of the IteratorAggregate interfaced of the
-     * IteratorAggregate interface.
-     *
-     * @param array $messages
-     *
      * @depends testPublish
-     * @dataProvider MessagesProvider
+     * @dataProvider messagesProvider
      */
     public function testGetIterator(array $messages): void
     {
         $producer = new Producer($this->exchange, $this->loop, 1);
         $ret = $producer->getIterator();
-        $this->assertIsArray($ret);
+
+        $this->assertTrue(\is_array($ret));
         $this->assertEmpty($ret);
+
         foreach ($messages as $message) {
             \call_user_func_array([$producer, 'publish'], $message);
         }
+
         $ret = $producer->getIterator();
-        $this->assertIsArray($ret);
+        $this->assertTrue(\is_array($ret));
         $this->assertNotEmpty($ret);
     }
 
     /**
-     * Asserts that an exception is thrown when attempting to publish a message
-     * to a closed producer.
-     *
      * @depends testClose
      */
-    public function testPublishAfterClosingProducer(): void
+    public function testPublishingAfterClosingIsNotAllowed(): void
     {
         $this->expectException(\BadMethodCallException::class);
 
@@ -251,14 +220,9 @@ class ProducerTest extends TestCase
     }
 
     /**
-     * Asserts that an exception is thrown when invoking a producer after it
-     * has been closed.
-     *
      * @depends testClose
-     *
-     * @throws \AMQPChannelException|\AMQPConnectionException
      */
-    public function testInvokeAfterClosingProducer(): void
+    public function testInvokingProducerAfterClosingIsNotAllowed(): void
     {
         $this->expectException(\BadMethodCallException::class);
 
@@ -267,58 +231,32 @@ class ProducerTest extends TestCase
         $producer();
     }
 
-    /**
-     * Data supplier with intervals for the constructor of the producer.
-     *
-     * @return array
-     */
-    public static function IntervalSupplier(): array
+    public function intervalSupplier(): \Generator
     {
-        return [
-            [1],
-            [2.4],
-            [0.05],
-        ];
+        yield [1];
+        yield [2.4];
+        yield [0.05];
     }
 
-    /**
-     * Data provider with message values.
-     *
-     * @return array
-     */
-    public static function MessageProvider(): array
+    public function messageProvider(): \Generator
     {
-        return [
-            ['foo', 'bar', 1 & 1, []],
-            ['bar', 'baz', 1 & 0, ['foo' => 'bar']],
-        ];
+        yield ['foo', 'bar', 1 & 1, []];
+        yield ['bar', 'baz', 1 & 0, ['foo' => 'bar']];
     }
 
-    /**
-     * Data provider with multiple messages to send.
-     *
-     * @return array
-     */
-    public static function MessagesProvider(): array
+    public function messagesProvider(): \Generator
     {
-        return [
-            [[
+        yield [
+            [
                 ['foo', 'bar', 1 & 1, []],
                 ['bar', 'baz', 1 & 0, ['foo' => 'bar']],
-            ]],
+            ]
         ];
     }
 
-    /**
-     * Data provider for testing __call on the producer.
-     *
-     * @return array
-     */
-    public static function CallProvider(): array
+    public function callProvider(): \Generator
     {
-        return [
-            ['setName', 'foo'],
-            ['setType', 'bar'],
-        ];
+        yield ['setName', 'foo'];
+        yield ['setType', 'bar'];
     }
 }
