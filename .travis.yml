@@ -34,5 +34,8 @@ before_install:
   - sudo apt install -y librabbitmq-dev
   - yes '' | pecl install -f amqp
 
+before_script:
+  - composer update $COMPOSER_FLAGS
+
 script:
   - vendor/bin/phpunit
