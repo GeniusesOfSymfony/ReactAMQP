@@ -106,9 +106,9 @@ class ProducerTest extends TestCase
     public function testPublish(string $message, string $routingKey, int $flags, array $attributes): void
     {
         $producer = new Producer($this->exchange, $this->loop, 1);
-        $this->assertAttributeCount(0, 'messages', $producer);
+        $this->assertCount(0, $producer);
         $producer->publish($message, $routingKey, $flags, $attributes);
-        $this->assertAttributeCount(1, 'messages', $producer);
+		$this->assertCount(1, $producer);
     }
 
     /**
@@ -129,10 +129,10 @@ class ProducerTest extends TestCase
         }
         $this->exchange->expects($this->exactly(\count($messages)))
             ->method('publish');
-        $this->assertAttributeCount(\count($messages), 'messages', $producer);
+        $this->assertCount(\count($messages), $producer);
         $producer();
         $this->assertSame(\count($messages), $this->counter);
-        $this->assertAttributeCount(0, 'messages', $producer);
+        $this->assertCount(0, $producer);
     }
 
     /**
@@ -157,7 +157,7 @@ class ProducerTest extends TestCase
             ->will($this->throwException(new AMQPExchangeException()));
         $producer();
         $this->assertSame(\count($messages), $this->counter);
-        $this->assertAttributeCount(\count($messages), 'messages', $producer);
+        $this->assertCount(\count($messages), $producer);
     }
 
     /**
